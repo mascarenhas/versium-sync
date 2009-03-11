@@ -1,0 +1,104 @@
+
+<html>
+    <head>
+        <title>About the ldiff implementation</title>
+        <style type="text/css">
+            body, table  {
+                font-family: verdana, arial, helvetica;
+                font-size: 10pt;
+            }
+            code {
+                color: green;
+            }	
+        </style>
+    </head>
+    <body>
+        <h1>About the ldiff tool</h1>
+
+        <i>&mdash; Wim Couwenberg, 30 December 2007</i>
+
+        <h3>Introduction</h3>
+        The ldiff and lpatch tools were my 2007 holidays project.  They are
+        written in 100% lua 5.1 and very small.  In particular I was interested
+        in implementing a &ldquo;binary diff&rdquo; algorithm, that is, an
+        algorithm that can produce reasonable diffs for arbitrary files, not
+        just ASCII files such as source code.  I produced satisfying results
+        for large tar files (not compressed of course) and MS Word documents.
+        The performance is more than acceptable on my system (a 2 GHz MacBook
+        pro).  This document describes the algorithm behind ldiff.
+
+        <h3>The global picture</h3>
+
+        The ldiff tool takes two files, a reference file and a target file, and
+        produces a <i>diff</i> file.  The diff file contains instructions how
+        to reconstruct the target file from the reference file.  There are two
+        types of diff instructions:
+
+        <ul>
+            <li>Copy instructions.
+            <li>Append instructions.
+        </ul>
+
+        A copy instruction extends the target file by copying a byte
+        subsequence from the reference file to the back of the target file.  An
+        append instruction extends the target file by adding a new byte
+        sequence to the back of the target file.  The sequence to be appended
+        is part of the append instruction and hence contained in the diff file. 
+
+        <p> Note that a copy instruction never copies bytes from the (partial)
+        target file itself.  So a diff from an empty reference file will not
+        compress the target file as some other tools do.
+
+        <p> The diff file is produced by a greedy scan of the target file in
+        sequential order.  Starting at the first byte of the target try to find
+        a matching subsequence of the reference file.  The subsequence should
+        be as long as possible but not smaller than some lower bound.  This
+        lower bound is specified by the variable <code>minimal_match</code> in
+        the script, which is <code>48</code> by default.  If a match is found a
+        copy instruction is added to the diff file and the matching sequence in
+        the target file is skipped.  If no match is found we skip a single byte
+        in the target file and search for a match again.  Once a match is found
+        or the end of the target file is reached we add an append instruction
+        for the subsequence in the target file for which no match was found.
+        This whole process repeats until the end of the target file is reached.
+        Note that any two append instructions in the resulting diff file are
+        always separated by at least one copy instruction.
+
+        <h3>Matching subsequences</h3>
+
+        The hardest part in computing a diff file is clearly to find matching
+        subsequences in the reference file.  In fact the first step that ldiff
+        takes is to build an index for the reference file to speed up the hunt
+        for subsequences.  This index is a &ldquo;sparse suffix trie&rdquo;
+        which will be explained in a moment.  Ldiff does not use block hashes
+        to index the reference file as some other tools (e.g. rsync) do.
+        Building the index accounts for most of ldiff's running time, since
+        computing the diff is a straightforward process after that.
+
+        <p> The index algorithm in ldiff is O(N) in the length of the reference
+        file to index.  Instead of indexing the complete suffixes for each file
+        offset ldiff indexes &ldquo;fingerprints&rdquo; at only those offsets
+        that are a multiple of some fixed stride.  This stride is specified by
+        the <code>index_step</code> variable in <code>ldiff.lua</code> and is 8
+        by default.  Here &ldquo;fingerprint&rdquo; denotes the following
+        concept.
+
+        <p> If <code>S</code> is the complete text of the reference file and
+        <code>p</code> is a file position then the fingerprint of
+        <code>S</code> at offset <code>p</code> is the sequence <code>S[p +
+            f<sub>i</sub>]</code> for <code>i</code> from 1..19 with
+        <code>f</code> the Fibonacci (like) sequence 0, 1, 2, 4, 7, .., 6764.
+        This sequence is chosen rather arbitrarily but has the property that it
+        becomes sparser at higher indices.  Since each fingerprint covers a
+        subsequence of length 6765 by examining only 19 positions we can still
+        expect to find large subsequence matches when they exist but at a much
+        lower price than indexing full suffixes.
+
+        <p> Although it is theoretically possible to build a full suffix trie
+        of the reference file in O(N) (by Ukkonen's algorithm) the
+        implementation will be much more involved than the current fingerprint
+        approach that also performs quite well.
+
+    </body> 
+</html>
+
