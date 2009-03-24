@@ -1,5 +1,7 @@
 
-require "serialize"
+require "versium.sync.serialize"
+
+local http = require "socket.http"
 
 module("versium.sync", package.seeall)
 
@@ -162,11 +164,16 @@ function client_update(repo, server, blacklist)
       end
     end
   end
-  return #server_changes ~= 0, conflicts
+  local local_changes = {}
+  for node_id, action in pairs(sync_info.nodes) do
+    table.insert(local_changes, { action, node_id, repo:get_node_info(node_id), 
+				  repo:get_node(node_id) })
+  end
+  return #server_changes ~= 0, local_changes, conflicts
 end
 
-function client_commit(repo, server, blacklist, server_changed, conflicts)
-  local local_changes = {}
+function client_commit(repo, server, blacklist, server_changed, local_changes,
+		       conflicts)
   for _, conflict in ipairs(conflicts) do
     if conflict.verdict == "server" then
       repo:save_version(conflict.id, conflict.server[2], conflict.server[1].author,
@@ -179,13 +186,9 @@ function client_commit(repo, server, blacklist, server_changed, conflicts)
       error("versium sync client: unsolved conflict")
     end
   end
-  for node_id, action in pairs(sync_info.nodes) do
-    table.insert(local_changes, { action, node_id, repo:get_node_info(node_id), 
-				  repo:get_node(node_id) })
-  end
   if server_changed or #local_changes ~= 0 then
     local res, status = http.request(server, serialize(local_changes))
     if status ~= 200 then error("versium sync server error: " .. res) end
-    client_save_sync_info(repo, res, blacklist)
+    client_save_sync_info(repo, loadstring(res)(), blacklist)
   end
 end

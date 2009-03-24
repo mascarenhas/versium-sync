@@ -1,0 +1,23 @@
+SCM-like sync support for Versium (http://spu.tnik.org/en/Versium).
+
+Install:
+
+Get versium-sync-scm-1.rockspec from 
+http://github.com/mascarenhas/versium-sync/tree/master (under rockspecs)
+then do
+
+$ luarocks install versium-sync-scm-1.rockspec
+
+Using the server:
+
+Copy versium-sync/scm-1/lua/src/server/server.ws from your rocks tree
+to sync/server.ws under your htdocs, and edit it to point to your
+repository's location (default is sync/versium under your htdocs).
+
+Using the client:
+
+Run client.lua <url of server.ws> <location of repository on filesystem>
+
+Right now the client solves all conflicts on its own behalf (but lists
+which nodes conflicted)
+
