@@ -21,3 +21,20 @@ Run client.lua <url of server.ws> <location of repository on filesystem>
 Right now the client solves all conflicts on its own behalf (but lists
 which nodes conflicted)
 
+Programmatically creating a sample repository (in case you don't have
+Sputnik):
+
+-----------
+require "versium.filedir"
+
+repo = versium.filedir.new{ "htdocs/sync/versium" }
+repo:save_version("Index", "This is the index page", "mascarenhas")
+repo:save_version("Index", "A new version of the index page", "mascarenhas")
+repo:save_version("Another", "This is another page", "carregal")
+repo:save_version("Another", "Second version of another page", "carregal")
+repo:save_version("Another", "Third version of another page", "carregal")
+repo:save_version("Foo", "yet another page", "medeiros")
+repo:save_version("Foo", "yet another page changed", "medeiros")
+repo:save_version("Bar", "yet another page changed", "medeiros")
+------------
+
