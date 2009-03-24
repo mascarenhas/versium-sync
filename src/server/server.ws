@@ -21,6 +21,7 @@ local function run(wsapi_env)
   local path_info, method = wsapi_env.PATH_INFO, string.lower(wsapi_env.REQUEST_METHOD)
   local blacklist = versium.sync.blacklist{ "@SyncServer_Metadata" }
   local res_header = { ["Content-Type"] = "application/verisum-sync" }
+  versium.sync.init_server(repo, blacklist)
   if path_info:match("^/%d+$") and method == "get" then
     local timestamp = path_info:match("^/(%d+)$")
     return 200, res_header, R(serialize(versium.sync.get_changes(repo, blacklist, timestamp)))
