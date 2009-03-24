@@ -1,7 +1,7 @@
 package = "Versium-Sync"
 version = "scm-1"
 source = {
-   url = "git://"
+   url = "git://github.com/mascarenhas/versium-sync.git"
 }
 description = {
    summary = "Syncing Support for Versium",
