@@ -11,7 +11,7 @@ function blacklist(list)
   return function (node) return bl[node] end
 end
 
-local function server_update_sync_info(repo, blacklist)
+local function server_update_sync_info(repo, blacklist, version_check)
   local sync_info = {}
   for _, node_id in ipairs(repo:get_node_ids()) do
      if not blacklist(node_id) then
@@ -19,14 +19,14 @@ local function server_update_sync_info(repo, blacklist)
        sync_info[node_id] = version
      end
   end
-  repo:save_version("@SyncServer_Metadata", serialize(sync_info), "Sync System")
-  return repo:get_node_info("@SyncServer_Metadata").version
+  return repo:save_version("@SyncServer_Metadata", serialize(sync_info), "Sync System",
+			   nil, nil, nil, version_check)
 end
 
 function init_server(repo, blacklist)
   local sync_info = repo:get_node_info("@SyncServer_Metadata")
   if not sync_info then
-    server_update_sync_info(repo, blacklist)
+    return server_update_sync_info(repo, blacklist)
   end
 end
 
@@ -72,7 +72,7 @@ function get_changes(repo, blacklist, timestamp)
     for node_id, _ in pairs(sync_meta_info) do
       table.insert(changes, { "delete", node_id })
     end
-    return changes
+    return { server_ts = repo:get_node_info("@SyncServer_Metadata").version, nodes = changes }
   end
 end
 
@@ -91,7 +91,8 @@ function get_all(repo, blacklist)
   return data
 end
 
-function server_update(repo, changes, blacklist)
+function server_update(repo, timestamp, changes, blacklist)
+  server_update_sync_info(repo, blacklist, timestamp)
   for _, change in ipairs(changes) do
     if change[1] == "delete" then
       repo:save_version(change[2], "", "Sync System")
@@ -145,7 +146,7 @@ function client_update(repo, server, blacklist)
   if status ~= 200 then error("versium sync server error: " .. res) end
   local server_changes = loadstring(res)()
   local conflicts = {}
-  for _, change in ipairs(server_changes) do
+  for _, change in ipairs(server_changes.nodes) do
     if sync_info.nodes[change[2]] then
       local node = repo:get_node(change[2])
       if node ~= change[4] then -- conflict
@@ -169,10 +170,10 @@ function client_update(repo, server, blacklist)
     table.insert(local_changes, { action, node_id, repo:get_node_info(node_id), 
 				  repo:get_node(node_id) })
   end
-  return #server_changes ~= 0, local_changes, conflicts
+  return server_changes, local_changes, conflicts
 end
 
-function client_commit(repo, server, blacklist, server_changed, local_changes,
+function client_commit(repo, server, blacklist, server_changes, local_changes,
 		       conflicts)
   for _, conflict in ipairs(conflicts) do
     if conflict.verdict == "server" then
@@ -186,8 +187,8 @@ function client_commit(repo, server, blacklist, server_changed, local_changes,
       error("versium sync client: unsolved conflict")
     end
   end
-  if server_changed or #local_changes ~= 0 then
-    local res, status = http.request(server, serialize(local_changes))
+  if #server_changes.nodes > 0 or #local_changes > 0 then
+    local res, status = http.request(server .. "/" .. server_changes.server_ts, serialize(local_changes))
     if status ~= 200 then error("versium sync server error: " .. res) end
     client_save_sync_info(repo, loadstring(res)(), blacklist)
   end

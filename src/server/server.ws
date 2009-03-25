@@ -30,10 +30,11 @@ local function run(wsapi_env)
 			    .. "\n")
   elseif path_info == "/" and method == "get" then
     return 200, res_header, R(serialize(versium.sync.get_all(repo, blacklist)) .. "\n") 
-  elseif path_info == "/" and method == "post" then
+  elseif path_info:match("^/%d+$") and method == "post" then
+    local timestamp = path_info:match("^/(%d+)$")
     local postdata = wsapi_env.input:read(tonumber(wsapi_env.CONTENT_LENGTH))
     local changes = loadstring(postdata)() or {}
-    return 200, res_header, R(serialize(versium.sync.server_update(repo, changes, blacklist))
+    return 200, res_header, R(serialize(versium.sync.server_update(repo, timestamp, changes, blacklist))
 			    .. "\n")
   else
     return 500, { ["Content-Type"] = "text/plain" }, R"Versium Sync Server: Invalid Request"
