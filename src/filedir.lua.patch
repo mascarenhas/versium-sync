@@ -46,9 +46,9 @@ index da38597..758e0db 100644
 +       -- load history, figure out the new revision ID, write data to file
 +       local raw_history = get_raw_history(self.dir, id)
 +       local history = parse_history(raw_history)
-+       if version_check and version_check ~= history[1].version then
-+	 error("udate error on node " .. id .. ": expected version " ..
-+	       version_check .. ", is version " .. history[1].version)
++       if (version_check == "new" and history[1]) or (version_check and version_check ~= history[1].version) then
++	  lock:free()
++	  return false     
 +       end
 +       local new_version_id = string.format("%06d", #history + 1)
 +       util.write_file(node_path.."/"..new_version_id, data, id)
