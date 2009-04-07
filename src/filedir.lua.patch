@@ -1,0 +1,75 @@
+diff --git a/versium/lua/versium/filedir.lua b/versium/lua/versium/filedir.lua
+index da38597..758e0db 100644
+--- a/versium/lua/versium/filedir.lua
++++ b/versium/lua/versium/filedir.lua
+@@ -204,33 +204,51 @@ end
+ -- @param timestamp      [optional] a timestamp to use.
+ -- @return               the version id of the new node.
+ -----------------------------------------------------------------------------
+-function FileDirVersium:save_version(id, data, author, comment, extra, timestamp)
++function FileDirVersium:save_version(id, data, author, comment, extra,
++				     timestamp, version_check)
+    assert(id)
+    assert(data)
+    assert(author)
+    local node_path = self.dir.."/"..util.fs_escape_id(id)
+    -- create a directory if necessary
+-   if not self:node_exists(id) then
++   if not lfs.attributes(node_path, "mode") then
+       lfs.mkdir(node_path)
+       self.node_table[id] = 1
+    end
+-   -- load history, figure out the new revision ID, write data to file
+-   local raw_history = get_raw_history(self.dir, id)
+-   local history = parse_history(raw_history)
+-   local new_version_id = string.format("%06d", #history + 1)
+-   util.write_file(node_path.."/"..new_version_id, data, id)
+-   -- generate and save the new index
+-   timestamp = timestamp or os.date("!%Y-%m-%d %H:%M:%S") -- default to current time   
+-   local extra_buffer = ""
+-   for k,v in pairs(extra or {}) do
+-      extra_buffer = extra_buffer..string.format("\n [%q] = %q, ", k, v)
+-   end                                
+-   local new_history = string.format(INDEX_TEMPLATE, 
+-                                     new_version_id, timestamp, author, 
+-                                     comment or "", extra_buffer) 
+-   util.write_file(self.dir.."/"..util.fs_escape_id(id).."/index", new_history..raw_history, id)
+-
+-   return new_version_id
++   local lock, err
++   repeat
++     lock, err = lfs.lock_dir(node_path, 10)
++     if not lock and err ~= "File exists" then error(err) end
++   until lock
++   local ok, new_version_id = xpcall(
++     function ()
++       -- load history, figure out the new revision ID, write data to file
++       local raw_history = get_raw_history(self.dir, id)
++       local history = parse_history(raw_history)
++       if version_check and version_check ~= history[1].version then
++	 error("udate error on node " .. id .. ": expected version " ..
++	       version_check .. ", is version " .. history[1].version)
++       end
++       local new_version_id = string.format("%06d", #history + 1)
++       util.write_file(node_path.."/"..new_version_id, data, id)
++       -- generate and save the new index
++       timestamp = timestamp or os.date("!%Y-%m-%d %H:%M:%S") -- default to current time   
++       local extra_buffer = ""
++       for k,v in pairs(extra or {}) do
++	 extra_buffer = extra_buffer..string.format("\n [%q] = %q, ", k, v)
++       end                                
++       local new_history = string.format(INDEX_TEMPLATE, 
++					 new_version_id, timestamp, author, 
++					 comment or "", extra_buffer) 
++       util.write_file(self.dir.."/"..util.fs_escape_id(id).."/index", new_history..raw_history, id)
++       lock:free()
++       return new_version_id
++     end, function (msg)
++	    lock:free()
++	    error(msg, 2)
++	  end
++   )
++   if ok then return new_version_id end
+ end
+ 
+ -----------------------------------------------------------------------------
