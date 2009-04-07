@@ -121,6 +121,7 @@ function server_update(repo, changes, blacklist)
   return version_conflicts
 end
 
+-- rebuilds client's sync metadata, needs fresh snapshot from server
 local function client_new_sync_info(repo, server_info, blacklist)
   local sync_info = { server_info = server_info, nodes = {} }
   for _, node_id in ipairs(repo:get_node_ids()) do
@@ -131,6 +132,9 @@ local function client_new_sync_info(repo, server_info, blacklist)
   repo:save_version("@SyncClient_Metadata", serialize(sync_info), "Sync Client")
 end
 
+-- updates client's sync metadta, changed is a set of changed nodes in the
+-- client, server_info is the new server snapshot (optinal, keeps the old
+-- one by default
 local function client_update_sync_info(repo, changed, server_info)
   local sync_info = loadstring(repo:get_node("@SyncClient_Metadata"))()
   for node_id, version in pairs(changed) do
@@ -140,6 +144,7 @@ local function client_update_sync_info(repo, changed, server_info)
   repo:save_version("@SyncClient_Metadata", serialize(sync_info), "Sync Client")
 end
 
+-- returns set of local changes to commit
 local function get_local_changes(repo, blacklist)
   local last_update = loadstring(repo:get_node("@SyncClient_Metadata"))()
   local changes = {}
@@ -155,6 +160,7 @@ local function get_local_changes(repo, blacklist)
   return changes, last_update.server_info
 end
 
+-- checks out fresh copy of server's repository
 function client_checkout(repo, server, blacklist)
   local res, status = http.request(server)
   if status ~= 200 then error("versium sync server error: " .. res) end
@@ -167,6 +173,8 @@ function client_checkout(repo, server, blacklist)
   client_new_sync_info(repo, remote_repo, blacklist)
 end
 
+-- updates local repository with server changes, returns list
+-- of update conflicts (and keeps those nodes unchanged)
 function client_update(repo, server, blacklist)
   local local_changes, server_info = get_local_changes(repo, blacklist)
   local res, status = http.request(server .. "/" .. server_info.server_ts)
@@ -180,8 +188,7 @@ function client_update(repo, server, blacklist)
     if local_changes[change[2]] then
       local node = repo:get_node(change[2])
       if node ~= change[4] then -- conflict
-	table.insert(conflicts, {  id = change[2], server = { change[3], change[4] },
-				   client = { repo:get_node_info(change[2]), node } })
+	table.insert(conflicts, {  change[2], change[3], change[4] })
       end
     else
       if change[1] == "delete" then
@@ -197,17 +204,21 @@ function client_update(repo, server, blacklist)
   return conflicts
 end
 
+-- updates local repository with list of conflicts
 function solve_conflicts(repo, conflicts)
   local changed = {}
   for _, conflict in ipairs(conflicts) do
-    repo:save_version(conflict.id, conflict.server[2], conflict.server[1].author,
-		      conflict.server[1].comment, conflict[1].server.extra,
-		      conflict.server[1].timestamp)
-    changed[conflict.id] = repo:get_node_info(conflict.id).version
+    repo:save_version(conflict[1], conflict[3], conflict[2].author,
+		      conflict[2].comment, conflict[2].extra,
+		      conflict[2].timestamp)
+    changed[conflict[1]] = repo:get_node_info(conflict[1]).version
   end
   client_update_sync_info(repo, changed)
 end
 
+-- commits local changes to server, returns true if commit
+-- was successful, false if there where version conflicts
+-- during commit
 function client_commit(repo, server, blacklist)
   local local_changes, server_info = get_local_changes(repo, blacklist)
   local to_commit = {}
