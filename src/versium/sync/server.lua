@@ -27,7 +27,6 @@ function methods:update(ts)
   if not ts then return self:checkout() end
   local repo, bl = self.repo, self.blacklist
   local si = loadstring(repo:get_node("@SyncServer_Metadata", ts))()
-  local si = loadstring(sn)()
   local changes = {}
   for _, id in pairs(repo:get_node_ids()) do
     if not bl(id) then

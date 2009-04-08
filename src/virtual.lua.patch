@@ -1,5 +1,14 @@
 --- virtual-old.lua	2009-04-08 16:43:31.000000000 -0300
-+++ virtual.lua	2009-04-08 16:42:33.000000000 -0300
++++ virtual.lua	2009-04-08 17:32:25.000000000 -0300
+@@ -49,7 +49,7 @@
+    assert(node.version) -- should come from history
+    node.id = id
+    node.data = self.store.nodes[id][node.version]
+-   return node
++   return node.data
+ end
+ 
+ ---------------------------------------------------------------------------------------------------
 @@ -111,12 +111,15 @@
  -- @param extra          any extra metadata (optional).
  -- @return               the version id of the new node.
