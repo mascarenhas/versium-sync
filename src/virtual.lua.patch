@@ -1,0 +1,19 @@
+--- virtual-old.lua	2009-04-08 16:43:31.000000000 -0300
++++ virtual.lua	2009-04-08 16:42:33.000000000 -0300
+@@ -111,12 +111,15 @@
+ -- @param extra          any extra metadata (optional).
+ -- @return               the version id of the new node.
+ ---------------------------------------------------------------------------------------------------
+-function VirtualVersiumStorage:save_version(id, data, author, comment, extra, timestamp)
++function VirtualVersiumStorage:save_version(id, data, author, comment, extra, timestamp, version_check)
+    assert(id)
+    assert(data)
+    assert(author)
+    -- load history, figure out what the new revision ID would be, write data to file
+    local history, raw_history = self:get_node_history(id)
++   if (version_check == "new" and history[1]) or (version_check and version_check ~= history[1].version) then
++     return false     
++   end
+    local new_version_id = string.format("%06d", #history + 1)
+ 
+    if not self.store.nodes[id] then
