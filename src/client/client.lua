@@ -16,9 +16,14 @@ local sync = versium.sync.new(repo, server, blacklist)
 
 local commit_ok
 repeat
+  print("Updating...")
   local conflicts = sync:update()
   for _, conflict in ipairs(conflicts) do
-    print("conflict on node ", conflict.id)
+    print("update conflict on node ", conflict.id)
   end
-  commit_ok = sync:commit()
-until commit_ok
+  print("Commiting...")
+  commit_conflicts = sync:commit()
+  for _, conflict in ipairs(commit_conflicts) do
+    print("commit conflict on node ", conflict)
+  end
+until #commit_conflicts == 0

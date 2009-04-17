@@ -11,10 +11,10 @@ local REPO_PATH  -- set this to change location of repository
 local function R(str)
   local sent
   return function ()
-	    if not sent then
-	      sent = true
-	      return str
-	    end
+	   if not sent then
+	     sent = true
+	     return str
+	   end
 	 end
 end
 

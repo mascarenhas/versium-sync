@@ -1,5 +1,4 @@
 
-
 require "versium.sync.serialize"
 
 local http = require "socket.http"
@@ -51,10 +50,11 @@ local function checkout(repo, server, blacklist)
   local res, status = http.request(server)
   if status ~= 200 then error("versium sync server error: " .. res) end
   local remote_repo = loadstring(res)()
-  for i, node in ipairs(remote_repo.nodes) do
+  local nodes, remote_repo.nodes = remote_repo.nodes, {}
+  for i, node in ipairs(nodes) do
     repo:save_version(node[2], node[4], node[3].author, node[3].comment,
 		      node[3].extra, node[3].timestamp)
-    remote_repo.nodes[i] = node[3].version
+    remote_repo.nodes[node[2]] = node[3].version
   end
   new_sync_node(repo, remote_repo, blacklist)
   return {} -- no conflicts on checkout
@@ -120,6 +120,12 @@ function methods:solve_conflicts(conflicts)
   update_sync_node(repo, changed)
 end
 
+local function set2list(s)
+  local l = {}
+  for k, _ in pairs(s) do l[#l + 1] = k end
+  return l
+end
+
 -- commits local changes to server, returns true if commit
 -- was successful, false if there where version conflicts
 -- during commit
@@ -135,17 +141,15 @@ function methods:commit()
     local res, status = http.request(srv .. "/" .. server_ts, serialize(to_commit))
     if status == 200 then
       local response = loadstring(res)()
-      local changed, has_conflicts = {}, false
+      local changed = {}
       for id, action in ipairs(changes) do
 	if not response.conflicts[node_id] then 
 	  changed[id] = repo:get_node_info(id).version 
 	  server_nodes[id] = response.delta[id]
-	else
-	  has_conflicts = true
 	end
       end
       update_sync_node(repo, changed, { nodes = server_nodes, timestamp = response.timestamp })
-      return not has_conflicts
+      return set2list(response.conflicts)
     end
     error("versium sync server error: " .. res)
   end
