@@ -54,13 +54,16 @@ end
 -- applies changes to repository, returns set of version conflicts
 function methods:commit(ts, changes)
   local repo, bl = self.repo, self.blacklist
-  local conficts = {}
+  local conflicts = {}
+  local si = loadstring(repo:get_node("@SyncServer_Metadata", ts))()
   local si_delta = {}
   for _, change in ipairs(changes) do
+    if change[1] == "add" then change[5] = "new" end
     local version = repo:save_version(change[2], change[4], change[3].author, change[3].comment,
 				      change[3].extra, change[3].timestamp, change[5])
     if version then
-      si[change[2]] = version
+	  si[change[2]] = version
+      si_delta[change[2]] = version
     else
       conflicts[change[2]] = true
     end
