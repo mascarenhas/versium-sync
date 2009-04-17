@@ -47,7 +47,7 @@ end
 
 -- gets entire repository (as changeset) and latest timestamp
 function methods:checkout()
-  local hist = repo:get_node_history("@SyncServer_Metadata")
+  local hist = self.repo:get_node_history("@SyncServer_Metadata")
   return self:update(hist[#hist].version)
 end
 

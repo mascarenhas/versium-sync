@@ -21,7 +21,7 @@ end
 local function run(wsapi_env)
   local repo = versium.filedir.new{ REPO_PATH or wsapi_env.APP_PATH .. "/versium" }
   local path_info, method = wsapi_env.PATH_INFO, string.lower(wsapi_env.REQUEST_METHOD)
-  local blacklist = versium.sync.blacklist{ "@SyncServer_Metadata" }
+  local blacklist = versium.sync.server.blacklist{ "@SyncServer_Metadata" }
   local res_header = { ["Content-Type"] = "application/versium-sync" }
   local server = versium.sync.server.new(repo, blacklist)
   if path_info:match("^/%d+$") and method == "get" then

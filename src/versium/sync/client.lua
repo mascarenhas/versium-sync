@@ -50,7 +50,8 @@ local function checkout(repo, server, blacklist)
   local res, status = http.request(server)
   if status ~= 200 then error("versium sync server error: " .. res) end
   local remote_repo = loadstring(res)()
-  local nodes, remote_repo.nodes = remote_repo.nodes, {}
+  local nodes = remote_repo.nodes
+  remote_repo.nodes = {}
   for i, node in ipairs(nodes) do
     repo:save_version(node[2], node[4], node[3].author, node[3].comment,
 		      node[3].extra, node[3].timestamp)
@@ -80,8 +81,8 @@ end
 -- of update conflicts (and keeps those nodes unchanged)
 function methods:update()
   local repo, srv, bl = self.repo, self.server, self.blacklist
-  local sn = repo:get_node("@SyncClient_Metadata")
-  if not sn then
+  local ok, sn = pcall(repo.get_node, repo, "@SyncClient_Metadata")
+  if not ok or not sn then
     return checkout(repo, srv, bl)
   end
   local si = loadstring(sn)()
