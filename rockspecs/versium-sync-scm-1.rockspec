@@ -18,8 +18,9 @@ build = {
    type = "none",
    install = {
      lua = {
-       ["versium.sync"] = "src/versium/sync.lua",
-       ["versium.sync.serialize"] = "src/serialize/serialize.lua"
+       ["versium.sync.client"] = "src/versium/sync/client.lua",
+       ["versium.sync.server"] = "src/versium/sync/server.lua",
+       ["versium.sync.serialize"] = "src/versium/sync/serialize.lua"
      },
      bin = { "src/client/client.lua" },
    },
