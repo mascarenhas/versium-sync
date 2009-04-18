@@ -15,6 +15,14 @@ local function empty(t)
   return true
 end
 
+local function set2pairs(t)
+  local l = {}
+  for k, v in pairs(t) do
+    l[#l + 1] = { k, v }
+  end
+  return l
+end
+
 local function make_server_repo()
   os.execute("rm -rf ../src/server/versium")
   os.execute("mkdir ../src/server/versium")
@@ -45,7 +53,7 @@ end
 
 local function stop_server()
   os.execute("touch ../src/server/stop")
-  os.execute("sleep 5")
+  os.execute("sleep 10")
 end
 
 function test_checkout()
@@ -53,13 +61,37 @@ function test_checkout()
   local crepo = empty_repo()
   start_server()
   local c = versium.sync.client.new(crepo, "http://localhost:8080/server.ws", blacklist)
-  local r = c:update()
-  assert(empty(r))
-  for _, id in ipairs(crepo:get_node_ids()) do
-    if not blacklist(id) then
-      assert(srepo:get_node(id) == crepo:get_node(id))
-    end
+  local confs, changes = c:update()
+  assert(empty(confs))
+  changes = set2pairs(changes)
+  assert(#changes == 4)
+  for _, node in ipairs(changes) do
+    assert(srepo:get_node(node[1]) == crepo:get_node(node[1], node[2]))
   end
+  stop_server()
+end
+
+function test_update_empty()
+  local srepo = make_server_repo()
+  local crepo = empty_repo()
+  start_server()
+  local c = versium.sync.client.new(crepo, "http://localhost:8080/server.ws", blacklist)
+  local confs, changes = c:update()
+  assert(empty(confs))
+  changes = set2pairs(changes)
+  assert(#changes == 4)
+  for _, node in ipairs(changes) do
+    assert(srepo:get_node(node[1]) == crepo:get_node(node[1], node[2]))
+  end
+  local ts = crepo:get_node_info("@SyncClient_Metadata").version
+  local confs, changes = c:update()
+  assert(empty(confs))
+  assert(empty(changes))
+  assert(ts ==  crepo:get_node_info("@SyncClient_Metadata").version)
+  local confs, changes = c:update()
+  assert(empty(confs))
+  assert(empty(changes))
+  assert(ts ==  crepo:get_node_info("@SyncClient_Metadata").version)
   stop_server()
 end
 

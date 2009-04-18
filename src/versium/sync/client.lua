@@ -78,7 +78,8 @@ local function local_changes(repo, si, blacklist)
 end
 
 -- updates local repository with server changes, returns list
--- of update conflicts (and keeps those nodes unchanged)
+-- of update conflicts (and keeps those nodes unchanged) and
+-- changes
 function methods:update()
   local repo, srv, bl = self.repo, self.server, self.blacklist
   local ok, sn = pcall(repo.get_node, repo, "@SyncClient_Metadata")
@@ -90,9 +91,8 @@ function methods:update()
   local res, status = http.request(srv .. "/" .. server_ts)
   if status ~= 200 then error("versium sync server error: " .. res) end
   local server_changes = loadstring(res)()
-  local conflicts = {}
-  local changed = {}
-  server_ts = server_changes.timestamp
+  if #server_changes.nodes == 0 and server_changes.timestamp == server_ts then return {}, {} end
+  local conflicts, changed = {}, {}
   for _, change in ipairs(server_changes.nodes) do
     server_nodes[change[2]] = change[3].version
     if local_changes[change[2]] then
@@ -105,8 +105,8 @@ function methods:update()
 					     change[3].comment, change[3].extra, change[3].timestamp)
     end
   end
-  update_sync_node(repo, changed, { nodes = server_nodes, timestamp = server_ts })
-  return conflicts
+  update_sync_node(repo, changed, { nodes = server_nodes, timestamp = server_changes.timestamp })
+  return conflicts, changed
 end
 
 -- updates local repository with list of conflicts
@@ -127,9 +127,8 @@ local function set2list(s)
   return l
 end
 
--- commits local changes to server, returns true if commit
--- was successful, false if there where version conflicts
--- during commit
+-- commits local changes to server, returns list of
+-- commit conflicts (due to conflicting versions)
 function methods:commit()
   local repo, srv, bl = self.repo, self.server, self.blacklist
   local changes, server_nodes, server_ts = local_changes(repo, bl)
